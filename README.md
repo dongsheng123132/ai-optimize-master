@@ -1,4 +1,4 @@
-# dsh-optimizer · know where every skill came from, review the change, restore the config
+# AI Optimize Master · know where every skill came from, review the change, restore the config
 
 > For people who run Claude Code, Codex, Cursor, DSH, OpenClaw and Hermes side by side:
 > how many copies of that skill do you have? Which ones point at files that no longer
@@ -32,9 +32,10 @@ One governance core with three surfaces:
 ## First run (three commands)
 
 ```bash
-npx dsh-optimizer scan                                            # read-only
-npx dsh-optimizer plan --select <skill> --out plan.json           # no mutation
-npx dsh-optimizer apply --plan plan.json --expect <planHash>      # requires the hash
+npx ai-optimize-master scan     # read-only inventory
+npx ai-optimize-master evolve   # improvement proposals (diffs only)
+npx ai-optimize-master plan --select <skill> --out plan.json   # reviewable plan
+npx ai-optimize-master apply --plan plan.json --expect <planHash>  # requires the hash
 ```
 
 As a DSH plugin, the tools are `dsh_optimizer_scan|plan|apply|undo`. The MCP surface

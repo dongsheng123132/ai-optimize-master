@@ -1,4 +1,4 @@
-# dsh-optimizer · AI 工具越装越多，也能查清来源、审阅变更、恢复配置
+# AI 优化大师 · AI 工具越装越多，也能查清来源、审阅变更、恢复配置
 
 > 给同时装了 Claude Code、Codex、Cursor、DSH、OpenClaw、Hermes 的人：
 > 你的 skill 被复制了几份？哪些指向了不存在的脚本？MCP 配了几处？
@@ -30,13 +30,13 @@
 
 ```bash
 # 1. 只读体检（不会改动任何东西）
-npx dsh-optimizer scan
+npx ai-optimize-master scan
 
 # 2. 出一份方案（先看再决定）
-npx dsh-optimizer plan --select <skill名> --out plan.json
+npx ai-optimize-master plan --select <skill名> --out plan.json
 
 # 3. 拿着方案哈希执行；没有哈希会被拒绝（退出码 4）
-npx dsh-optimizer apply --plan plan.json --expect <planHash>
+npx ai-optimize-master apply --plan plan.json --expect <planHash>
 ```
 
 安装到 DSH 作为插件：

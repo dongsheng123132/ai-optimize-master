@@ -9,7 +9,7 @@ import { home } from './lib/util.mjs'
 import { writeFile, mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 
-export const name = 'dsh-optimizer'
+export const name = 'ai-optimize-master'
 export const inject = ['tools']
 
 const renderJson = (_args, value) => [{ type: 'text', text: JSON.stringify(value, null, 2) }]

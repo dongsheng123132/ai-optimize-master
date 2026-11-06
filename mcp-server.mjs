@@ -50,7 +50,7 @@ for await (const line of lines) {
   if (request.id === undefined) continue
   try {
     if (request.method === 'initialize') {
-      send({ jsonrpc: '2.0', id: request.id, result: { protocolVersion: request.params?.protocolVersion ?? '2025-06-18', capabilities: { tools: {} }, serverInfo: { name: 'dsh-optimizer', version: '0.2.0' } } })
+      send({ jsonrpc: '2.0', id: request.id, result: { protocolVersion: request.params?.protocolVersion ?? '2025-06-18', capabilities: { tools: {} }, serverInfo: { name: 'ai-optimize-master', version: '0.3.0' } } })
     } else if (request.method === 'tools/list') {
       send({ jsonrpc: '2.0', id: request.id, result: { tools } })
     } else if (request.method === 'tools/call') {

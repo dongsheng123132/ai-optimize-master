@@ -1,26 +1,26 @@
 {
-  "name": "dsh-optimizer",
-  "version": "0.2.0",
-  "description": "Inventory duplicate, broken and stale AI-tool skills and MCP declarations, then archive them with a hash-bound plan and byte-exact undo — read-only by default.",
+  "name": "ai-optimize-master",
+  "version": "0.3.0",
+  "description": "AI 优化大师 — audit duplicate, broken and stale AI-tool skills, propose improvements, archive reversibly.",
   "author": {
     "name": "2Origin",
     "url": "https://github.com/dongsheng123132"
   },
-  "homepage": "https://github.com/dongsheng123132/dsh-optimizer#readme",
-  "repository": "https://github.com/dongsheng123132/dsh-optimizer",
+  "homepage": "https://github.com/dongsheng123132/ai-optimize-master",
+  "repository": "https://github.com/dongsheng123132/ai-optimize-master",
   "license": "MIT",
   "keywords": [
+    "ai-optimize-master",
     "deepseek-harness",
     "skill-management",
     "mcp",
-    "cleanup",
-    "inventory"
+    "cleanup"
   ],
   "mcpServers": "./.mcp.json",
   "interface": {
-    "displayName": "DSH Optimizer",
-    "shortDescription": "Find duplicate, broken and stale AI-tool skills; clean up reversibly.",
-    "longDescription": "Scans the skill roots of every AI tool on this machine, reports byte-identical duplicates, diverged copies, dangling local references and unreadable roots, and surfaces MCP declarations without executing any server. Cleanup is opt-in per skill: a hash-bound plan, a journal, and byte-exact undo.",
+    "displayName": "AI 优化大师",
+    "shortDescription": "Audit duplicate, broken and stale AI-tool skills; propose improvements; clean up reversibly.",
+    "longDescription": "Scans the skill roots of every AI tool on this machine, reports byte-identical duplicates, diverged copies, dangling local references and unreadable roots, surfaces MCP declarations without executing any server, and proposes improvements as diffs. Cleanup is opt-in per skill: a hash-bound plan, a journal, and byte-exact undo.",
     "developerName": "2Origin",
     "category": "Developer Tools",
     "capabilities": [
@@ -29,7 +29,7 @@
       "Reversible cleanup"
     ],
     "defaultPrompt": [
-      "Scan my AI tool skill roots and tell me what is duplicated, broken or stale."
+      "扫描我的 AI 工具技能目录，告诉我哪些重复、断链、该升级。"
     ]
   }
 }

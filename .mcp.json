@@ -1,8 +1,10 @@
 {
   "mcpServers": {
-    "dsh-optimizer": {
+    "ai-optimize-master": {
       "command": "node",
-      "args": ["./mcp-server.mjs"],
+      "args": [
+        "./mcp-server.mjs"
+      ],
       "description": "Read-only AI tool asset inventory and planning. Apply/undo are intentionally not exposed over MCP."
     }
   }

@@ -1,18 +1,19 @@
 {
-  "name": "dsh-optimizer",
-  "version": "0.2.0",
-  "description": "Inventory duplicate, broken and stale AI-tool skills and MCP declarations, then archive them with a hash-bound plan and byte-exact undo — read-only by default.",
+  "name": "ai-optimize-master",
+  "version": "0.3.0",
+  "description": "AI 优化大师 — audit duplicate, broken and stale AI-tool skills and MCP declarations, propose improvements, and archive selected items with a hash-bound plan and byte-exact undo. Read-only by default.",
   "license": "MIT",
   "type": "module",
   "main": "./index.js",
   "exports": {
-    ".": "./index.js",
+    ".\"": "./index.js",
     "./scan": "./lib/scan.mjs",
     "./plan": "./lib/apply.mjs",
+    "./evolve": "./lib/evolve.mjs",
     "./util": "./lib/util.mjs"
   },
   "bin": {
-    "dsh-optimizer": "./bin/dsh-optimizer.mjs"
+    "ai-optimize-master": "./bin/dsh-optimizer.mjs"
   },
   "files": [
     ".codex-plugin/",
@@ -20,6 +21,7 @@
     "index.js",
     "lib/",
     "bin/",
+    "skill/",
     "cordis.patch.yml",
     "mcp-server.mjs",
     "README.md",
@@ -57,16 +59,19 @@
     "test": "node --test test/*.test.mjs",
     "check": "node scripts/check.mjs",
     "smoke:plugin": "node test/plugin-smoke.mjs",
-    "smoke:mcp": "node test/mcp-smoke.mjs"
+    "smoke:mcp": "node test/mcp-smoke.mjs",
+    "evolve": "node bin/dsh-optimizer.mjs evolve"
   },
   "engines": {
     "node": ">=22"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/dongsheng123132/dsh-optimizer.git"
+    "url": "git+https://github.com/dongsheng123132/ai-optimize-master.git"
   },
   "keywords": [
+    "ai-optimize-master",
+    "ai-optimizer",
     "deepseek-harness",
     "dsh",
     "dsh-plugin",
@@ -74,5 +79,6 @@
     "mcp",
     "cleanup",
     "inventory"
-  ]
+  ],
+  "homepage": "https://github.com/dongsheng123132/ai-optimize-master#readme"
 }

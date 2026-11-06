@@ -4,22 +4,25 @@
 import { readFile, writeFile, mkdir } from 'node:fs/promises'
 import { join, resolve, dirname } from 'node:path'
 import { scan } from '../lib/scan.mjs'
+import { propose, compareScans } from '../lib/evolve.mjs'
 import { buildPlan, applyPlan, undoJournal } from '../lib/apply.mjs'
 import { home, expandHome } from '../lib/util.mjs'
 
 function usage() {
-  return `dsh-optimizer v0.2.0 — inventory and reversible cleanup for AI tool assets
+  return `AI 优化大师 (ai-optimize-master) v0.3 — audit and reversibly clean AI tool assets
 
 Usage:
-  dsh-optimizer scan  [--json] [--roots a:b] [--no-probes]
-  dsh-optimizer plan  [--select name]... [--root id]... [--in FILE] [--out FILE] [--json]
-  dsh-optimizer apply --plan FILE --expect HASH [--allow low|medium|high] [--json]
-  dsh-optimizer undo  --journal FILE [--json]
+  ai-optimize-master scan    [--json] [--save-baseline FILE] [--no-probes]
+  ai-optimize-master evolve  [--in FILE] [--baseline FILE] [--out FILE] [--json]
+  ai-optimize-master plan    [--select name]... [--root id]... [--in FILE] [--out FILE] [--json]
+  ai-optimize-master apply   --plan FILE --expect HASH [--allow low|medium|high] [--json]
+  ai-optimize-master undo    --journal FILE [--json]
 
 Exit codes: 0 ok · 1 usage/runtime error · 3 diverged · 4 denied
 
 Safety:
-  - scan is strictly read-only.
+  - scan is strictly read-only (the only file it writes is an explicit --save-baseline).
+  - evolve proposes improvements and diffs; it never edits a skill.
   - plan never mutates anything.
   - apply requires --expect with the exact plan hash and journals every change.
   - Only skills that live inside a declared skill root can be archived.
@@ -73,8 +76,44 @@ async function cmdScan(args) {
     roots: roots.length ? [...(await import('../lib/scan.mjs')).defaultRoots(), ...roots] : undefined,
     probes: !args['no-probes']
   })
+  if (args['save-baseline']) {
+    // The inspected trees are still untouched; this writes only the named file.
+    const target = expandHome(String(args['save-baseline']))
+    await mkdir(dirname(resolve(target)), { recursive: true })
+    await writeFile(target, JSON.stringify(result, null, 2), 'utf8')
+  }
   if (args.json) process.stdout.write(`${JSON.stringify(result, null, 2)}\n`)
   else process.stdout.write(renderScan(result))
+  return 0
+}
+
+async function cmdEvolve(args) {
+  const current = args.in ? await readJson(args.in) : await scan({ probes: false })
+  const report = await propose(current)
+  if (args.baseline) {
+    const baseline = await readJson(args.baseline)
+    report.changes = compareScans(baseline, current)
+  }
+  if (args.out) {
+    const target = expandHome(String(args.out))
+    await mkdir(dirname(resolve(target)), { recursive: true })
+    await writeFile(target, JSON.stringify(report, null, 2), 'utf8')
+  }
+  if (args.json) {
+    process.stdout.write(`${JSON.stringify(report, null, 2)}\n`)
+  } else {
+    const lines = [`AI 优化大师 · evolve (proposals only, nothing was changed)`]
+    lines.push(`Proposals: ${report.proposals.length}  ${JSON.stringify(report.counts)}`)
+    for (const p of report.proposals.slice(0, 20)) {
+      lines.push(`  [${p.risk}] ${p.kind} · ${p.skill}: ${p.suggestion.slice(0, 90)}${p.suggestion.length > 90 ? '…' : ''}`)
+    }
+    if (report.proposals.length > 20) lines.push(`  … ${report.proposals.length - 20} more (use --json)`)
+    if (report.changes) {
+      lines.push('', `Changes since baseline: +${report.changes.added.length} / -${report.changes.resolved.length}`)
+    }
+    lines.push('', 'Nothing is applied by evolve. Review a diff, then edit the skill yourself or archive it.')
+    process.stdout.write(`${lines.join('\n')}\n`)
+  }
   return 0
 }
 
@@ -144,7 +183,7 @@ async function cmdUndo(args) {
   return result.code
 }
 
-const commands = { scan: cmdScan, plan: cmdPlan, apply: cmdApply, undo: cmdUndo }
+const commands = { scan: cmdScan, evolve: cmdEvolve, plan: cmdPlan, apply: cmdApply, undo: cmdUndo }
 
 async function main() {
   const argv = process.argv.slice(2)

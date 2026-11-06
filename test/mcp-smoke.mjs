@@ -42,7 +42,7 @@ test('MCP exposes scan/plan only, never apply', async () => {
   const server = start()
   try {
     const init = await server.request('initialize', { protocolVersion: '2025-06-18' })
-    assert.equal(init.result?.serverInfo?.name, 'dsh-optimizer')
+    assert.equal(init.result?.serverInfo?.name, 'ai-optimize-master')
     const list = await server.request('tools/list', {})
     const names = list.result.tools.map(t => t.name).sort()
     assert.deepEqual(names, ['optimizer_plan', 'optimizer_scan'])

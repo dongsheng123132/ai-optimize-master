@@ -2,7 +2,7 @@
 
 ## Scope
 
-`dsh-optimizer` inspects AI-tool asset directories and MCP configuration files on
+`ai-optimize-master` inspects AI-tool asset directories and MCP configuration files on
 the machine where it runs. It does not phone home, does not upload inventory, and
 does not require credentials.
 
@@ -10,7 +10,7 @@ does not require credentials.
 
 | Surface | Read | Plan | Apply / Undo |
 |---|---|---|---|
-| CLI (`bin/dsh-optimizer.mjs`) | yes | yes | yes (local, with `--expect`) |
+| CLI (`bin/ai-optimize-master.mjs`) | yes | yes | yes (local, with `--expect`) |
 | DSH plugin tools | yes | yes | yes (with `expect`) |
 | MCP server (`mcp-server.mjs`) | yes | yes | **no — deliberately absent** |
 

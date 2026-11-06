@@ -1,6 +1,6 @@
-# RESULT — dsh-optimizer v0.2（对 TASK-hermes.md 的逐条交代）
+# RESULT — ai-optimize-master v0.2（对 TASK-hermes.md 的逐条交代）
 
-> 状态：**已实现并可跑**（不是设计稿）。验收命令：`npm test`（23 项全绿）、`npm run check`。
+> 状态：**v0.3 已实现并可跑**（不是设计稿）。产品名：AI 优化大师（`ai-optimize-master`）。验收：`npm test`（29 项全绿）、`npm run check`。
 > 未实现项在下文「没做」一节明写，不假装完成。
 
 ## 1. 三个动作（任务书 §1）
@@ -44,13 +44,13 @@
 | 入口 | 状态 | 备注 |
 |---|---|---|
 | DSH 插件 `index.js` | ✅ 源码完成 | `name` / `inject` / `createDefinitions` 具名导出，无 default export；**运行时加载未验证**（本 checkout 没装 `@deepseek-ai/dsh-tools`），`test/plugin-smoke.mjs` 明确标注为静态检查 |
-| CLI `bin/dsh-optimizer.mjs` | ✅ 实测 | `scan/plan/apply/undo`，`--json` 时 stdout 纯 JSON |
+| CLI `bin/ai-optimize-master.mjs` | ✅ 实测 | `scan/plan/apply/undo`，`--json` 时 stdout 纯 JSON |
 | MCP `mcp-server.mjs` | ✅ 实测 | 只读：initialize / tools/list / tools/call(scan,plan) |
 | `.codex-plugin/plugin.json` | ✅ | 依 dsh-cost 字段结构 |
 
 ## 4. 真机证据（脱敏）
 
-在本机（macOS）跑 `node bin/dsh-optimizer.mjs scan`：
+在本机（macOS）跑 `node bin/ai-optimize-master.mjs scan`：
 
 ```
 DeepSeek Harness             131 skills
@@ -73,7 +73,7 @@ MCP declarations: claude=1 codex=5 cursor=1
 ```
 Plan 00dd54e3a793e91188962a4e29e5aa4ba383e0aa91763a104b3482caa5a75fe8
   [low] archive-skill:claude:cloudflare-domain
-        ~/.claude/skills/cloudflare-domain -> ~/.dsh-optimizer/archive/claude__cloudflare-domain
+        ~/.claude/skills/cloudflare-domain -> ~/.ai-optimize-master/archive/claude__cloudflare-domain
 ```
 
 `plan` 不写盘；`apply` 未运行。
@@ -94,7 +94,7 @@ Plan 00dd54e3a793e91188962a4e29e5aa4ba383e0aa91763a104b3482caa5a75fe8
 - 旧 `lib/util.mjs` 的已知 bug 已修：`sha256Hex` 对非字符串改走 `canonicalStringify`，
   O10 可因改回 `JSON.stringify` 而变红。
 - 旧原型只有 3 个文件；本版新增 `scan/apply/CLI/MCP/测试/文档`。
-- Windows 侧 `D:\uking编程\dsh-optimizer` 仍是旧状态（1 commit），本 Mac 目录成为当前真相源，
+- Windows 侧 `D:\uking编程\ai-optimize-master` 仍是旧状态（1 commit），本 Mac 目录成为当前真相源，
   合并方向需要人拍板（见「待人定夺」）。
 
 ## 6.5 v0.2 代码会审后修复（std，6 模型）
@@ -113,10 +113,26 @@ Plan 00dd54e3a793e91188962a4e29e5aa4ba383e0aa91763a104b3482caa5a75fe8
 
 仍未消除的边界：并发写入窗口只能收窄、不能消除（见 SECURITY.md）。
 
+## 6.6 v0.3：自动进化（提案制）+ 三载体 + 改名
+
+按 2026-11-06 的 std 会审（6 模型）执行：
+
+| 决定 | 落地 |
+|---|---|
+| 名字沿用「AI 优化大师」 | 包名/命令/插件 id 统一 `ai-optimize-master`，版本 0.3.0 |
+| 「自动进化」只做审计+提案+变化提醒 | 新增 `evolve`（只读）：断链引用、Windows 硬编码路径、重复副本，各带证据/行号/diff；**没有自动执行路径** |
+| 不做自动删引用、不补占位、不自动软链、不用 AI 改写 SKILL.md | `lib/evolve.mjs` 不 import 任何写接口；check 会在出现时失败 |
+| 变化检测 | `scan --save-baseline <file>` + `evolve --baseline <file>` 输出 added/resolved |
+| 三载体 | `skill/SKILL.md`（SkillHub/ClawHub 包装）+ DSH 插件 + npm CLI；`docs/分发-三载体.md` |
+| 删旧物 | 删除已过时的 `TASK-hermes.md`（git 历史保留） |
+| 首发免费 | 不接钱包、不挂支付 |
+
+v0.3 实测：`evolve` 在本机产出 **196 条提案**（断链引用 104、Windows 路径 54、重复 38），全部只读。
+
 ## 7. 待人定夺
 
 1. **仓库挂哪**：GitHub `ai-optimize-master` 现内容只有 `alarm.pod`，与本产品无关。是改名/换仓，
-   还是新建 `dsh-optimizer`？
+   还是新建 `ai-optimize-master`？
 2. **是否合并 Windows 旧提交**（851ced1）再推。
-3. **是否发 npm**：`dsh-optimizer` 在 npm 上不存在；发布需要 OTP 与明确授权。
+3. **是否发 npm**：`ai-optimize-master` 在 npm 上不存在；发布需要 OTP 与明确授权。
 4. **是否把本核心接进 U-King**（U-King 已有 ukrt/macopt 执行器，建议只共享资产模型与哈希门禁，不重写执行器）。

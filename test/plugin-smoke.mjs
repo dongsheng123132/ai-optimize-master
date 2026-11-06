@@ -9,7 +9,7 @@ import { readFile } from 'node:fs/promises'
 const source = await readFile(new URL('../index.js', import.meta.url), 'utf8')
 
 test('plugin exports the expected DSH module shape', () => {
-  assert.match(source, /export const name = 'dsh-optimizer'/)
+  assert.match(source, /export const name = 'ai-optimize-master'/)
   assert.match(source, /export const inject = \['tools'\]/)
   assert.match(source, /export function createDefinitions\(\)/)
   assert.ok(!/export\s+default/.test(source), 'no default export')
