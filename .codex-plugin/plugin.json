@@ -1,6 +1,6 @@
 {
   "name": "ai-optimize-master",
-  "version": "0.3.0",
+  "version": "0.3.2",
   "description": "AI 优化大师 — audit duplicate, broken and stale AI-tool skills, propose improvements, archive reversibly.",
   "author": {
     "name": "2Origin",
