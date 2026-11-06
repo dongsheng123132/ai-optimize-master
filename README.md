@@ -42,7 +42,7 @@ As a DSH plugin, the tools are `dsh_optimizer_scan|plan|apply|undo`. The MCP sur
 
 ## What it proves
 
-Verification is `npm test`, not prose. 16 contract tests:
+Verification is `npm test`, not prose. 23 contract tests:
 
 | Id | Defends against |
 |---|---|

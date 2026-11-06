@@ -1,6 +1,6 @@
 # RESULT — dsh-optimizer v0.2（对 TASK-hermes.md 的逐条交代）
 
-> 状态：**已实现并可跑**（不是设计稿）。验收命令：`npm test`（16 项全绿）、`npm run check`。
+> 状态：**已实现并可跑**（不是设计稿）。验收命令：`npm test`（23 项全绿）、`npm run check`。
 > 未实现项在下文「没做」一节明写，不假装完成。
 
 ## 1. 三个动作（任务书 §1）
@@ -96,6 +96,22 @@ Plan 00dd54e3a793e91188962a4e29e5aa4ba383e0aa91763a104b3482caa5a75fe8
 - 旧原型只有 3 个文件；本版新增 `scan/apply/CLI/MCP/测试/文档`。
 - Windows 侧 `D:\uking编程\dsh-optimizer` 仍是旧状态（1 commit），本 Mac 目录成为当前真相源，
   合并方向需要人拍板（见「待人定夺」）。
+
+## 6.5 v0.2 代码会审后修复（std，6 模型）
+
+会审发现并已修的缺陷：
+
+| 缺陷 | 修法 | 回归测试 |
+|---|---|---|
+| 未知 risk/allow 绕过门禁（`undefined > 0 === false`） | `validatePlan` 白名单校验，未知值退出 1 | review: invalid allow / bad-risk |
+| journal 只在最后落盘，中途失败无可恢复记录 | 先写 intent，再每步重写 | review: partial failure still journaled |
+| undo 不检查原路径是否被重新占用 | `target-occupied` 冲突，不覆盖 | undo reports conflict |
+| 只哈希 SKILL.md，非入口文件变化漏检 | 整目录 manifest（路径/类型/哈希/链接目标） | O6、review: tampered archive |
+| archive 目标可能与旧归档合并 | 独占创建，已存在则 `archive-target-exists` | review: existing archive target |
+| `isInside` 前缀检查挡不住符号链接逃逸 | `realpath` + 拒绝 symlink 源 | review: symlinked skill / outside roots |
+| 归档复制与删除之间无校验 | staging + 复制校验 + 删除前复核源 manifest | O6 |
+
+仍未消除的边界：并发写入窗口只能收窄、不能消除（见 SECURITY.md）。
 
 ## 7. 待人定夺
 

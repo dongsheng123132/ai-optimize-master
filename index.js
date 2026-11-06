@@ -5,9 +5,9 @@
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import { scan } from './lib/scan.mjs'
 import { buildPlan, applyPlan, undoJournal } from './lib/apply.mjs'
-import { home, sha256Of } from './lib/util.mjs'
-import { writeFile, mkdir, cp, rm } from 'node:fs/promises'
-import { join, dirname } from 'node:path'
+import { home } from './lib/util.mjs'
+import { writeFile, mkdir } from 'node:fs/promises'
+import { join } from 'node:path'
 
 export const name = 'dsh-optimizer'
 export const inject = ['tools']
@@ -21,18 +21,6 @@ const journal = {
     const file = join(root, `${doc.planHash}.json`)
     await writeFile(file, JSON.stringify(doc, null, 2), 'utf8')
     return file
-  }
-}
-
-const archive = async step => {
-  const { from, to } = step.preview
-  await mkdir(dirname(to), { recursive: true })
-  await cp(from, to, { recursive: true, force: true })
-  await rm(from, { recursive: true, force: true })
-  return {
-    before: { path: from, hash: step.evidence?.skillMdHash ?? null },
-    after: { path: to, hash: await sha256Of(join(to, 'SKILL.md')), hashTarget: join(to, 'SKILL.md') },
-    summary: { from, to }
   }
 }
 
@@ -80,8 +68,7 @@ export function createDefinitions() {
           expect: args.expect,
           allow: args.allow ?? 'low',
           journal,
-          archive,
-          isAdmin: undefined
+          isAdmin: false
         })
         if (result.code === 4) throw Object.assign(new Error('denied: apply requires the exact plan hash'), { code: 'DENIED' })
         if (result.code === 3) throw Object.assign(new Error('diverged: plan hash does not match plan content'), { code: 'DIVERGED' })
@@ -96,14 +83,7 @@ export function createDefinitions() {
       },
       output: { schema: { type: 'json' }, render: renderJson },
       async execute(args) {
-        return undoJournal(args.journal, {
-          currentHash: sha256Of,
-          restore: async step => {
-            const { before, after } = step
-            await cp(after.path, before.path, { recursive: true, force: true })
-            await rm(after.path, { recursive: true, force: true })
-          }
-        })
+        return undoJournal(args.journal, { journal })
       }
     })
   ]

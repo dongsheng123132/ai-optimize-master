@@ -105,9 +105,31 @@ test('CLI: tampered plan exits 3', async () => {
   const box = await mkdtemp(join(tmpdir(), 'dsh-optimizer-cli-'))
   try {
     const planFile = join(box, 'plan.json')
-    await writeFile(planFile, JSON.stringify({ schema: 'dsh-optimizer/plan/v0.2', steps: [{ id: 'x', kind: 'archive-skill', risk: 'low', requiresAdmin: false, preview: { from: '/tmp/a', to: '/tmp/b' } }], skipped: [], findingIds: [], planHash: 'not-the-real-hash' }), 'utf8')
-    const result = await run(['apply', '--plan', planFile, '--expect', 'not-the-real-hash', '--json'], { DSH_OPTIMIZER_HOME: join(box, 'home') })
-    assert.equal(result.code, 3)
+    const wrongHash = '0'.repeat(64)
+    const plan = {
+      schema: 'dsh-optimizer/plan/v0.2',
+      platform: process.platform,
+      archiveRoot: join(box, 'archive'),
+      authorizedRoots: [{ id: 'a', dir: join(box, 'skills') }],
+      createdAt: '2026-01-01T00:00:00.000Z',
+      steps: [{
+        id: 'archive-skill:a:x',
+        kind: 'archive-skill',
+        title: 'x',
+        preview: { from: join(box, 'skills', 'x'), to: join(box, 'archive', 'a__x') },
+        risk: 'low',
+        requiresAdmin: false,
+        reversible: true,
+        evidence: { skillMdHash: 'f'.repeat(64), duplicates: 'single-copy', brokenReferences: [] },
+        rationale: 'test'
+      }],
+      skipped: [],
+      findingIds: [],
+      planHash: wrongHash
+    }
+    await writeFile(planFile, JSON.stringify(plan), 'utf8')
+    const result = await run(['apply', '--plan', planFile, '--expect', wrongHash, '--json'], { DSH_OPTIMIZER_HOME: join(box, 'home') })
+    assert.equal(result.code, 3, result.err)
   } finally {
     await rm(box, { recursive: true, force: true })
   }

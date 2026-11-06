@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 // CLI entry. Exit codes are part of the contract:
 //   0 success | 1 usage/runtime failure | 3 diverged | 4 denied
-import { readFile, writeFile, mkdir, cp, rename, rm } from 'node:fs/promises'
+import { readFile, writeFile, mkdir } from 'node:fs/promises'
 import { join, resolve, dirname } from 'node:path'
 import { scan } from '../lib/scan.mjs'
 import { buildPlan, applyPlan, undoJournal } from '../lib/apply.mjs'
-import { home, sha256Of, sha256Hex, expandHome, parseBool, isInside } from '../lib/util.mjs'
+import { home, expandHome } from '../lib/util.mjs'
 
 function usage() {
   return `dsh-optimizer v0.2.0 — inventory and reversible cleanup for AI tool assets
@@ -61,24 +61,6 @@ function journalWriter(root) {
       const file = join(root, `${doc.planHash}.json`)
       await writeFile(file, JSON.stringify(doc, null, 2), 'utf8')
       return file
-    }
-  }
-}
-
-// Archive = move the whole skill directory into the optimizer's own archive root.
-// Before-images are captured as content hashes plus a byte copy, so undo is exact.
-function archiveStep(archiveRoot) {
-  return async step => {
-    const { from, to } = step.preview
-    await ensureDir(dirname(to))
-    await cp(from, to, { recursive: true, errorOnExist: false, force: false })
-    const skillMd = join(to, 'SKILL.md')
-    const beforeHash = step.evidence?.skillMdHash ?? null
-    await rm(from, { recursive: true, force: true })
-    return {
-      before: { path: from, hash: beforeHash },
-      after: { path: to, hash: await sha256Of(skillMd), hashTarget: skillMd },
-      summary: { from, to }
     }
   }
 }
@@ -144,8 +126,7 @@ async function cmdApply(args) {
     expect: typeof args.expect === 'string' ? args.expect : null,
     allow: typeof args.allow === 'string' ? args.allow : 'low',
     journal: journalWriter(journalRoot),
-    archive: archiveStep(plan.archiveRoot ?? join(home(), 'archive')),
-    isAdmin: process.platform !== 'win32' ? typeof process.getuid === 'function' && process.getuid() === 0 : undefined
+    isAdmin: typeof process.getuid === 'function' ? process.getuid() === 0 : false
   })
   if (args.json) process.stdout.write(`${JSON.stringify(result, null, 2)}\n`)
   else {
@@ -158,14 +139,7 @@ async function cmdApply(args) {
 async function cmdUndo(args) {
   if (!args.journal) { process.stderr.write('undo requires --journal\n'); return 1 }
   const doc = await readJson(args.journal)
-  const result = await undoJournal(doc, {
-    currentHash: sha256Of,
-    restore: async step => {
-      const { before, after } = step
-      await cp(after.path, before.path, { recursive: true, force: true })
-      await rm(after.path, { recursive: true, force: true })
-    }
-  })
+  const result = await undoJournal(doc, { journal: journalWriter(join(home(), 'journal')) })
   process.stdout.write(`${JSON.stringify(result, null, 2)}\n`)
   return result.code
 }

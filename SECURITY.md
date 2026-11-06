@@ -27,8 +27,14 @@ tool's skill root.
 
 Hard constraints:
 
-- The target must live inside one of the declared skill roots. Paths outside are
-  refused at plan time (`outside-skill-root`).
+- Every step is validated before any write: unknown `risk`/`allow` values, unknown
+  step kinds, and malformed previews are rejected with exit **1** instead of being
+  silently downgraded.
+- The source must live inside one of the plan's `authorizedRoots`, must not be a
+  symlink, and its real path must also stay inside a root (prefix checks alone do
+  not catch symlinked ancestors).
+- The archive target must not already exist. A previous archive is never merged
+  into; the step is blocked as `archive-target-exists`.
 - The caller must pass the exact `planHash` (`--expect`); otherwise the run exits
   **4 (denied)**.
 - If the plan body no longer matches its hash, the run exits **3 (diverged)** and
@@ -37,7 +43,11 @@ Hard constraints:
   `medium` risk and is skipped unless explicitly allowed.
 - A step marked `requiresAdmin` is blocked when not elevated, and **no journal
   entry is written** for a step that never ran.
-- Every executed step is journaled in `$DSH_OPTIMIZER_HOME/journal/<planHash>.json`.
+- The journal is written **before** the first destructive operation (intent) and
+  rewritten after every step, so a crash mid-run still leaves an accurate record.
+- The journal stores a full directory manifest (relative path, entry type, file
+  SHA-256, symlink target) for both the source and the archived copy. A single
+  `SKILL.md` hash is not treated as proof that the archive is complete.
 
 ## What apply cannot do (v0.2)
 
@@ -51,9 +61,20 @@ Hard constraints:
 
 ## Undo semantics
 
-`undo` processes journal steps in reverse order. If a file changed after apply,
-the step is reported as `conflict` and **is not overwritten**. Restoring a stale
-backup over newer user edits is treated as data loss, not as a successful undo.
+`undo` processes journal steps in reverse order and checks two things before
+restoring: the archived tree still matches its recorded manifest, and the original
+path is still free. If the user re-created the original path after apply, the step
+is reported as `conflict`/`target-occupied` and **is not overwritten**. An
+already-restored step is detected by manifest and reported as `already-restored`
+instead of failing.
+
+## Concurrent writes
+
+`archive` builds a manifest, copies to a staging directory, verifies the copy,
+renames it into place, re-checks the source manifest, and only then removes the
+source. This narrows the window in which a concurrently edited file could be lost,
+but it cannot eliminate it. When the source changes during the copy, the step is
+blocked as `source-changed-during-copy` and nothing is deleted.
 
 ## Known limits, stated honestly
 

@@ -1,12 +1,13 @@
 // Core contract tests. Each test is labelled with the requirement id it defends.
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises'
+import { mkdtemp, mkdir, writeFile, readFile, rm, symlink } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { scan } from '../lib/scan.mjs'
 import { buildPlan, applyPlan, undoJournal, verifyPlanHash } from '../lib/apply.mjs'
 import { snapshotTree, snapshotEqual, sha256Hex, sha256Of, canonicalStringify } from '../lib/util.mjs'
+import { buildManifest, manifestsEqual } from '../lib/manifest.mjs'
 
 async function sandbox() {
   const root = await mkdtemp(join(tmpdir(), 'dsh-optimizer-test-'))
@@ -134,74 +135,58 @@ test('O5 stale plan hash is refused', async () => {
   }
 })
 
-// O6: journal is complete and undo restores byte-identical content.
+// O6: journal is complete (with full manifests) and undo restores byte-identical content.
 test('O6 journal + byte-exact undo', async () => {
   const box = await sandbox()
   try {
     const root = join(box.root, 'skills')
     const dir = await makeSkill(root, 'alpha', '# alpha v1\n', { 'scripts/run.mjs': 'console.log(1)\n' })
-    const originalSkillMd = await sha256Of(join(dir, 'SKILL.md'))
+    const original = await buildManifest(dir)
     const scanResult = await scan({ roots: [{ id: 'a', label: 'A', dir: root }], mcpConfigs: [], probes: false })
     const plan = buildPlan(scanResult, { home: join(box.root, 'opt'), selections: [{ name: 'alpha', root: 'a' }] })
-    const archiveRoot = plan.archiveRoot
+    const journalFile = join(box.root, 'journal.json')
     const journal = {
-      async write(doc) { await writeFile(join(box.root, 'journal.json'), JSON.stringify(doc), 'utf8'); return join(box.root, 'journal.json') }
+      async write(doc) { await writeFile(journalFile, JSON.stringify(doc), 'utf8'); return journalFile }
     }
-    const archive = async step => {
-      const { from, to } = step.preview
-      await mkdir(to, { recursive: true })
-      await writeFile(join(to, 'SKILL.md'), await readFile(join(from, 'SKILL.md')))
-      await rm(from, { recursive: true, force: true })
-      return {
-        before: { path: from, hash: step.evidence.skillMdHash },
-        after: { path: to, hash: await sha256Of(join(to, 'SKILL.md')), hashTarget: join(to, 'SKILL.md') },
-        summary: { from, to }
-      }
-    }
-    const applied = await applyPlan(plan, { expect: plan.planHash, allow: 'medium', journal, archive })
-    assert.equal(applied.code, 0)
+    const applied = await applyPlan(plan, { expect: plan.planHash, allow: 'medium', journal })
+    assert.equal(applied.code, 0, JSON.stringify(applied.results))
     assert.equal(applied.journal.steps.length, 1)
-    assert.ok(applied.journal.steps[0].before.hash)
-    assert.ok(applied.journal.steps[0].after.hash)
+    const step = applied.journal.steps[0]
+    assert.ok(step.before.manifest.entries.length >= 2, 'manifest covers every file, not just SKILL.md')
+    assert.ok(step.after.digest, 'archive carries a manifest digest')
+    assert.ok(!(await sha256Of(join(dir, 'SKILL.md'))), 'source removed after verified copy')
 
-    const undo = await undoJournal(applied.journal, {
-      currentHash: sha256Of,
-      restore: async step => {
-        await mkdir(step.before.path, { recursive: true })
-        await writeFile(join(step.before.path, 'SKILL.md'), await readFile(join(step.after.path, 'SKILL.md')))
-        await rm(step.after.path, { recursive: true, force: true })
-      }
-    })
+    const undo = await undoJournal(applied.journal, { journal })
     assert.equal(undo.code, 0)
-    assert.equal(await sha256Of(join(dir, 'SKILL.md')), originalSkillMd)
+    assert.equal(undo.results[0].status, 'restored')
+    assert.ok(manifestsEqual(original, await buildManifest(dir)), 'restored tree must match the pre-apply manifest')
   } finally {
     await box.cleanup()
   }
 })
 
-// O7: an admin-only step is blocked without a journal entry.
+// O7: an admin-only step is blocked and leaves no applied step in the journal.
 test('O7 admin step never runs silently', async () => {
   const box = await sandbox()
   try {
     const root = join(box.root, 'skills')
-    await makeSkill(root, 'alpha', '# alpha\n')
+    const dir = await makeSkill(root, 'alpha', '# alpha\n')
     const scanResult = await scan({ roots: [{ id: 'a', label: 'A', dir: root }], mcpConfigs: [], probes: false })
     const plan = buildPlan(scanResult, { home: join(box.root, 'opt'), selections: ['alpha'] })
     plan.steps[0].requiresAdmin = true
-    // Re-hash because we changed the plan body on purpose.
     const { planHash, ...rest } = plan
     plan.planHash = sha256Hex(rest)
-    const journalDocs = []
+    const writes = []
     const result = await applyPlan(plan, {
       expect: plan.planHash,
       allow: 'high',
       isAdmin: false,
-      journal: { write: async doc => { journalDocs.push(doc) } },
-      archive: async () => { throw new Error('must not archive') }
+      journal: { write: async doc => { writes.push(JSON.parse(JSON.stringify(doc))) } }
     })
     assert.equal(result.results[0].status, 'blocked')
     assert.equal(result.results[0].blocked, 'requires-admin')
-    assert.equal(journalDocs[0].steps.length, 0, 'no journal entry for a step that never ran')
+    for (const doc of writes) assert.equal(doc.steps.length, 0, 'no applied step may be journaled')
+    assert.ok(await readFile(join(dir, 'SKILL.md'), 'utf8'), 'blocked step must not move the source')
   } finally {
     await box.cleanup()
   }
@@ -229,9 +214,9 @@ test('O10 planHash ignores key order but not values', async () => {
     await makeSkill(root, 'alpha', '# alpha\n')
     const scanResult = await scan({ roots: [{ id: 'a', label: 'A', dir: root }], mcpConfigs: [], probes: false })
     const plan = buildPlan(scanResult, { home: join(box.root, 'opt'), selections: ['alpha'] })
-    const reordered = { steps: plan.steps, findingIds: plan.findingIds, skipped: plan.skipped, platform: plan.platform, schema: plan.schema }
-    reordered.createdAt = plan.createdAt
-    reordered.archiveRoot = plan.archiveRoot
+    const { planHash, ...body } = plan
+    // Same semantics, keys inserted in reverse order.
+    const reordered = Object.fromEntries(Object.entries(body).reverse())
     assert.equal(sha256Hex(reordered), plan.planHash, 'same semantics, different key order => same hash')
 
     const changed = JSON.parse(JSON.stringify(reordered))
@@ -266,24 +251,27 @@ test('duplicates: identical vs diverged', async () => {
   }
 })
 
-// Extra: undo refuses to overwrite a file the user edited after apply.
+// Extra: undo refuses when the original path was re-created after apply.
 test('undo reports conflict instead of clobbering', async () => {
   const box = await sandbox()
   try {
+    const original = join(box.root, 'orig')
+    const archived = join(box.root, 'arch')
+    await makeSkill(box.root, 'orig', '# v1\n')
+    await makeSkill(box.root, 'arch', '# v1\n')
+    const before = await buildManifest(original)
+    const after = await buildManifest(archived)
+    // Simulate a user re-creating the original directory after apply.
+    await writeFile(join(original, 'SKILL.md'), '# edited by user\n', 'utf8')
     const journalDoc = {
       planHash: 'x',
-      steps: [{ id: 's1', before: { path: join(box.root, 'orig', 'SKILL.md'), hash: 'old' }, after: { path: join(box.root, 'arch', 'SKILL.md'), hash: 'new' } }]
+      steps: [{ id: 's1', kind: 'archive-skill', before: { path: original, manifest: before, digest: 'd1' }, after: { path: archived, manifest: after, digest: 'd2' } }]
     }
-    await mkdir(join(box.root, 'arch'), { recursive: true })
-    await writeFile(join(box.root, 'arch', 'SKILL.md'), '# edited by user\n', 'utf8')
-    let restored = false
-    const result = await undoJournal(journalDoc, {
-      currentHash: async () => 'something-else',
-      restore: async () => { restored = true }
-    })
+    const result = await undoJournal(journalDoc, {})
     assert.equal(result.code, 3)
     assert.equal(result.results[0].status, 'conflict')
-    assert.equal(restored, false)
+    assert.equal(result.results[0].code, 'target-occupied')
+    assert.equal(await readFile(join(original, 'SKILL.md'), 'utf8'), '# edited by user\n')
   } finally {
     await box.cleanup()
   }
@@ -300,6 +288,145 @@ test('verifyPlanHash detects tampering', async () => {
     assert.equal(verifyPlanHash(plan), true)
     plan.steps[0].risk = 'high'
     assert.equal(verifyPlanHash(plan), false)
+  } finally {
+    await box.cleanup()
+  }
+})
+
+// ——— Fixes required by the v0.2 code review ———
+
+// Unknown risk/allow must be rejected, never silently treated as "low".
+test('review: invalid allow value is rejected before any write', async () => {
+  const box = await sandbox()
+  try {
+    const root = join(box.root, 'skills')
+    await makeSkill(root, 'alpha', '# alpha\n')
+    const scanResult = await scan({ roots: [{ id: 'a', label: 'A', dir: root }], mcpConfigs: [], probes: false })
+    const plan = buildPlan(scanResult, { home: join(box.root, 'opt'), selections: ['alpha'] })
+    const result = await applyPlan(plan, {
+      expect: plan.planHash,
+      allow: 'LOWWRITTEN',
+      journal: { write: async () => { throw new Error('must not journal') } }
+    })
+    assert.equal(result.code, 1)
+    assert.equal(result.reason, 'invalid-allow-value')
+  } finally {
+    await box.cleanup()
+  }
+})
+
+test('review: an unvalidated risk value is rejected by plan validation', async () => {
+  const box = await sandbox()
+  try {
+    const root = join(box.root, 'skills')
+    await makeSkill(root, 'alpha', '# alpha\n')
+    const scanResult = await scan({ roots: [{ id: 'a', label: 'A', dir: root }], mcpConfigs: [], probes: false })
+    const plan = buildPlan(scanResult, { home: join(box.root, 'opt'), selections: ['alpha'] })
+    plan.steps[0].risk = 'trivial'
+    const { planHash, ...rest } = plan
+    plan.planHash = sha256Hex(rest)
+    const result = await applyPlan(plan, { expect: plan.planHash, allow: 'high', journal: { write: async () => {} } })
+    assert.equal(result.code, 1)
+    assert.ok(result.problems.includes('steps[0]:bad-risk'))
+  } finally {
+    await box.cleanup()
+  }
+})
+
+test('review: an existing archive target is never merged into', async () => {
+  const box = await sandbox()
+  try {
+    const root = join(box.root, 'skills')
+    await makeSkill(root, 'alpha', '# alpha\n')
+    const scanResult = await scan({ roots: [{ id: 'a', label: 'A', dir: root }], mcpConfigs: [], probes: false })
+    const plan = buildPlan(scanResult, { home: join(box.root, 'opt'), selections: ['alpha'] })
+    await makeSkill(join(box.root, 'opt', 'archive'), 'a__alpha', '# previous archive\n')
+    const result = await applyPlan(plan, { expect: plan.planHash, allow: 'high', journal: { write: async () => {} } })
+    assert.equal(result.results[0].status, 'blocked')
+    assert.equal(result.results[0].blocked, 'archive-target-exists')
+    assert.ok(await readFile(join(root, 'alpha', 'SKILL.md'), 'utf8'), 'source must stay put')
+    assert.equal(await readFile(join(box.root, 'opt', 'archive', 'a__alpha', 'SKILL.md'), 'utf8'), '# previous archive\n')
+  } finally {
+    await box.cleanup()
+  }
+})
+
+test('review: a symlinked skill is refused instead of followed', async () => {
+  const box = await sandbox()
+  try {
+    const outside = join(box.root, 'outside')
+    await makeSkill(outside, 'real', '# outside\n')
+    const root = join(box.root, 'skills')
+    await mkdir(root, { recursive: true })
+    await symlink(join(outside, 'real'), join(root, 'linked'), 'dir')
+    const scanResult = await scan({ roots: [{ id: 'a', label: 'A', dir: root }], mcpConfigs: [], probes: false })
+    const plan = buildPlan(scanResult, { home: join(box.root, 'opt'), selections: ['linked'] })
+    assert.equal(plan.steps.length, 0, 'symlinked skills must not become steps')
+  } finally {
+    await box.cleanup()
+  }
+})
+
+test('review: a step outside the authorized roots is blocked at apply time', async () => {
+  const box = await sandbox()
+  try {
+    const root = join(box.root, 'skills')
+    await makeSkill(root, 'alpha', '# alpha\n')
+    const scanResult = await scan({ roots: [{ id: 'a', label: 'A', dir: root }], mcpConfigs: [], probes: false })
+    const plan = buildPlan(scanResult, { home: join(box.root, 'opt'), selections: ['alpha'] })
+    // Model-supplied plan field tampering: point the source outside authorizedRoots.
+    plan.authorizedRoots = [{ id: 'a', dir: join(box.root, 'somewhere-else') }]
+    const { planHash, ...rest } = plan
+    plan.planHash = sha256Hex(rest)
+    const result = await applyPlan(plan, { expect: plan.planHash, allow: 'high', journal: { write: async () => {} } })
+    assert.equal(result.results[0].blocked, 'source-outside-authorized-roots')
+    assert.ok(await readFile(join(root, 'alpha', 'SKILL.md'), 'utf8'))
+  } finally {
+    await box.cleanup()
+  }
+})
+
+test('review: a tampered archive is detected before restore', async () => {
+  const box = await sandbox()
+  try {
+    const original = join(box.root, 'orig')
+    const archived = join(box.root, 'arch')
+    await makeSkill(box.root, 'orig', '# v1\n')
+    await makeSkill(box.root, 'arch', '# v1\n')
+    const before = await buildManifest(original)
+    const after = await buildManifest(archived)
+    // Someone modified the archive after apply.
+    await writeFile(join(archived, 'SKILL.md'), '# tampered\n', 'utf8')
+    const journalDoc = { planHash: 'x', steps: [{ id: 's1', kind: 'archive-skill', before: { path: original, manifest: before, digest: 'd1' }, after: { path: archived, manifest: after, digest: 'd2' } }] }
+    const result = await undoJournal(journalDoc, {})
+    assert.equal(result.results[0].code, 'archive-integrity-failed')
+    assert.equal(result.code, 3)
+  } finally {
+    await box.cleanup()
+  }
+})
+
+test('review: partial failure still leaves prior steps journaled', async () => {
+  const box = await sandbox()
+  try {
+    const root = join(box.root, 'skills')
+    await makeSkill(root, 'alpha', '# alpha\n')
+    await makeSkill(root, 'beta', '# beta\n')
+    const scanResult = await scan({ roots: [{ id: 'a', label: 'A', dir: root }], mcpConfigs: [], probes: false })
+    const plan = buildPlan(scanResult, { home: join(box.root, 'opt'), selections: ['alpha', 'beta'] })
+    // Pre-create the archive target of the second step so it fails.
+    const second = plan.steps.find(s => s.id.endsWith(':beta'))
+    await makeSkill(join(box.root, 'opt', 'archive'), 'a__beta', '# occupied\n')
+    const writes = []
+    const result = await applyPlan(plan, {
+      expect: plan.planHash,
+      allow: 'high',
+      journal: { write: async doc => { writes.push(JSON.parse(JSON.stringify(doc))) } }
+    })
+    const statuses = Object.fromEntries(result.results.map(r => [r.id.split(':').pop(), r.status + (r.blocked ? `:${r.blocked}` : '')]))
+    assert.equal(statuses.alpha, 'applied')
+    assert.equal(statuses.beta, 'blocked:archive-target-exists')
+    assert.ok(writes.some(doc => doc.steps.length === 1), 'the applied step must be journaled before the failure')
   } finally {
     await box.cleanup()
   }
