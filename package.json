@@ -1,0 +1,78 @@
+{
+  "name": "dsh-optimizer",
+  "version": "0.2.0",
+  "description": "Inventory duplicate, broken and stale AI-tool skills and MCP declarations, then archive them with a hash-bound plan and byte-exact undo — read-only by default.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js",
+    "./scan": "./lib/scan.mjs",
+    "./plan": "./lib/apply.mjs",
+    "./util": "./lib/util.mjs"
+  },
+  "bin": {
+    "dsh-optimizer": "./bin/dsh-optimizer.mjs"
+  },
+  "files": [
+    ".codex-plugin/",
+    ".mcp.json",
+    "index.js",
+    "lib/",
+    "bin/",
+    "cordis.patch.yml",
+    "mcp-server.mjs",
+    "README.md",
+    "README.zh-CN.md",
+    "SECURITY.md",
+    "LICENSE"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "compatibility": {
+      "dsh": ">=0.1.2-alpha.4",
+      "node": ">=22",
+      "dshReleases": {
+        "0.2.0-rc.2": "compatible",
+        "0.1.2-alpha.4": "compatible",
+        "0.1.2-alpha.5": "compatible",
+        "0.1.2-rc.1": "compatible"
+      }
+    }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/dsh-tools": "*"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/dsh-tools": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@deepseek-ai/dsh-tools": "0.1.2-rc.1"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "check": "node scripts/check.mjs",
+    "smoke:plugin": "node test/plugin-smoke.mjs",
+    "smoke:mcp": "node test/mcp-smoke.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dongsheng123132/dsh-optimizer.git"
+  },
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "skill-management",
+    "mcp",
+    "cleanup",
+    "inventory"
+  ]
+}

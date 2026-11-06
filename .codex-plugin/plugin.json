@@ -1,0 +1,35 @@
+{
+  "name": "dsh-optimizer",
+  "version": "0.2.0",
+  "description": "Inventory duplicate, broken and stale AI-tool skills and MCP declarations, then archive them with a hash-bound plan and byte-exact undo — read-only by default.",
+  "author": {
+    "name": "2Origin",
+    "url": "https://github.com/dongsheng123132"
+  },
+  "homepage": "https://github.com/dongsheng123132/dsh-optimizer#readme",
+  "repository": "https://github.com/dongsheng123132/dsh-optimizer",
+  "license": "MIT",
+  "keywords": [
+    "deepseek-harness",
+    "skill-management",
+    "mcp",
+    "cleanup",
+    "inventory"
+  ],
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "DSH Optimizer",
+    "shortDescription": "Find duplicate, broken and stale AI-tool skills; clean up reversibly.",
+    "longDescription": "Scans the skill roots of every AI tool on this machine, reports byte-identical duplicates, diverged copies, dangling local references and unreadable roots, and surfaces MCP declarations without executing any server. Cleanup is opt-in per skill: a hash-bound plan, a journal, and byte-exact undo.",
+    "developerName": "2Origin",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Read",
+      "Audit",
+      "Reversible cleanup"
+    ],
+    "defaultPrompt": [
+      "Scan my AI tool skill roots and tell me what is duplicated, broken or stale."
+    ]
+  }
+}
