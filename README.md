@@ -81,6 +81,10 @@ npm run check   # structure, read-only scan, MCP write surface absent
 - Boundaries: [`SECURITY.md`](SECURITY.md)
 - Last reviewed: 2026-11-06
 
+## Recognised skill roots
+
+22 known locations are probed by default (DSH / agents / Claude / Codex / Cursor / OpenClaw / U-King / Hermes / OpenCode / Pi / Gemini / Qwen / Trae / Windsurf / Qoder / CodeBuddy / CommandCode / Grok / iFlow / Lingma / ZCode / the agents canonical source). Missing directories are skipped, never created and never reported as errors. Extra shared trees (e.g. a Windows workstation) are added with `DSH_OPTIMIZER_ROOTS`.
+
 ## Support matrix
 
 | Capability | Windows | macOS | Linux |
